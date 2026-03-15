@@ -5,8 +5,6 @@ import AdminPage from "./AdminPage";
 import UserPage from "./UserPage";
 import ExternalPage from "./ExternalPage";
 
-const ROLE_LABEL = { admin: "관리자", user: "사용자", external: "외부팀" };
-const ROLE_COLOR = { admin: "#7c5cfc", user: "#4a9eff", external: "#10b981" };
 
 export default function App() {
   const [session, setSession]  = useState(null);
@@ -44,7 +42,7 @@ export default function App() {
   const rawRole = profile?.role || "external";
   const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
 
-  const activePage = role;
+  const [view, setView] = useState(role); // admin이면 admin/user 전환 가능
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0f14", fontFamily: "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif", color: "#e8eaf0" }}>
@@ -56,9 +54,18 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 12, color: "#4a4d5e" }}>{session.user.email}</span>
-          <span style={{ background: (ROLE_COLOR[role] || "#4a4d5e") + "22", color: ROLE_COLOR[role] || "#4a4d5e", border: `1px solid ${(ROLE_COLOR[role] || "#4a4d5e")}55`, borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
-            {ROLE_LABEL[role] || role}
-          </span>
+          {role === "admin" && view === "admin" && (
+            <button onClick={() => setView("user")}
+              style={{ background: "transparent", border: "1px solid #1e2130", color: "#4a9eff", borderRadius: 7, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              ← 사용자
+            </button>
+          )}
+          {role === "admin" && view === "user" && (
+            <button onClick={() => setView("admin")}
+              style={{ background: "transparent", border: "1px solid #1e2130", color: "#7c5cfc", borderRadius: 7, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              관리자 →
+            </button>
+          )}
           <button onClick={() => supabase.auth.signOut()}
             style={{ background: "transparent", border: "1px solid #1e2130", color: "#4a4d5e", borderRadius: 7, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>
             로그아웃
@@ -68,9 +75,9 @@ export default function App() {
 
 
       {/* 페이지 */}
-      {activePage === "admin"    && <AdminPage />}
-      {activePage === "user"     && <UserPage />}
-      {activePage === "external" && <ExternalPage />}
+      {view === "admin"    && <AdminPage />}
+      {view === "user"     && <UserPage />}
+      {view === "external" && <ExternalPage />}
     </div>
   );
 }
