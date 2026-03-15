@@ -4,6 +4,7 @@ import Login from "./Login";
 import AdminPage from "./AdminPage";
 import UserPage from "./UserPage";
 import TodoPage from "./TodoPage";
+import DisputePage from "./DisputePage";
 import ExternalPage from "./ExternalPage";
 
 
@@ -65,7 +66,7 @@ export default function App() {
           </div>
           {(view === "user" || (role !== "admin" && role === "user")) && (
             <div style={{ display: "flex", gap: 4 }}>
-              {[["todos", "TODO"], ["patents", "특허 목록"]].map(([key, label]) => (
+              {[["todos", "TODO"], ["disputes", "분쟁관리"], ["patents", "특허 목록"]].map(([key, label]) => (
                 <div key={key} onClick={() => setSubView(key)}
                   style={{ padding: "0 12px", fontSize: 13, fontWeight: 700, cursor: "pointer",
                     color: subView === key ? "#7c5cfc" : "#4a4d5e",
@@ -103,6 +104,7 @@ export default function App() {
       {view === "admin"                            && <AdminPage />}
       {view === "user" && subView === "patents"    && <UserPage />}
       {view === "user" && subView === "todos"      && <TodoPage />}
+      {view === "user" && subView === "disputes"   && <DisputePage />}
       {view === "external"                         && <ExternalPage />}
     </div>
   );
