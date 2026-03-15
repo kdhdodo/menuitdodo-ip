@@ -103,13 +103,17 @@ export default function AdminPage() {
             <div style={{ color: "#e8eaf0" }}>{m.email}</div>
             <div style={{ color: "#8890a4" }}>{m.name || "—"}</div>
             <div>
-              <select value={m.role || "user"} onChange={e => changeRole(m.id, e.target.value)}
-                style={{ background: "transparent", border: `1px solid ${roleColor[m.role] || "#4a4d5e"}`, borderRadius: 5, padding: "3px 8px", color: roleColor[m.role] || "#4a4d5e", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
+              {m.role === "super_admin" ? (
+                <span style={{ background: "#7c5cfc22", color: "#7c5cfc", border: "1px solid #7c5cfc55", borderRadius: 5, padding: "3px 8px", fontSize: 12, fontWeight: 700 }}>총관리자</span>
+              ) : (
+                <select value={m.role || "user"} onChange={e => changeRole(m.id, e.target.value)}
+                  style={{ background: "transparent", border: `1px solid ${roleColor[m.role] || "#4a4d5e"}`, borderRadius: 5, padding: "3px 8px", color: roleColor[m.role] || "#4a4d5e", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              )}
             </div>
-            <button onClick={() => removeMember(m.id)}
-              style={{ background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.2)", color: "#ff5050", borderRadius: 5, padding: "3px 10px", fontSize: 12, cursor: "pointer" }}>
+            <button onClick={() => removeMember(m.id)} disabled={m.role === "super_admin"}
+              style={{ background: m.role === "super_admin" ? "transparent" : "rgba(255,80,80,0.1)", border: `1px solid ${m.role === "super_admin" ? "transparent" : "rgba(255,80,80,0.2)"}`, color: m.role === "super_admin" ? "transparent" : "#ff5050", borderRadius: 5, padding: "3px 10px", fontSize: 12, cursor: m.role === "super_admin" ? "default" : "pointer" }}>
               삭제
             </button>
           </div>
