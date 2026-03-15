@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
+const STATUS_COLOR = {
+  "진행중": "#f59e0b",
+  "완료":   "#10b981",
+  "보류":   "#4a4d5e",
+};
+
 function formatCommentDate(ts) {
   const d = new Date(ts);
   return `${d.getMonth() + 1}.${d.getDate()}`;
@@ -54,7 +60,7 @@ export default function TodoPage() {
   const [loading, setLoading]       = useState(true);
   const [cLoading, setCLoading]     = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
-  const [tForm, setTForm]           = useState({ title: "", due_date: "", note: "" });
+  const [tForm, setTForm]           = useState({ title: "", due_date: "", note: "", status: "진행중" });
   const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
   const [pendingFiles, setPendingFiles] = useState([]);
   const [pendingLinks, setPendingLinks] = useState([]);
@@ -100,15 +106,22 @@ export default function TodoPage() {
     setTimeout(() => timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }
 
+  async function changeStatus(id, status) {
+    await supabase.from("patent_todos").update({ status }).eq("id", id);
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+    if (selected?.id === id) setSelected(s => ({ ...s, status }));
+  }
+
   async function addTodo() {
     if (!tForm.title.trim()) return;
     setSaving(true);
     const { data } = await supabase.from("patent_todos").insert({
       title:    tForm.title.trim(),
+      status:   tForm.status,
       due_date: tForm.due_date || null,
       note:     tForm.note.trim() || null,
     }).select().single();
-    setTForm({ title: "", due_date: "", note: "" });
+    setTForm({ title: "", due_date: "", note: "", status: "진행중" });
     setShowAdd(false);
     setSaving(false);
     await loadTodos();
@@ -246,10 +259,14 @@ export default function TodoPage() {
       {/* 추가 폼 */}
       {showAdd && (
         <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
             <input value={tForm.title} onChange={e => setTForm(f => ({ ...f, title: e.target.value }))}
               placeholder="할 일 제목"
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+            <select value={tForm.status} onChange={e => setTForm(f => ({ ...f, status: e.target.value }))}
+              style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
+              {Object.keys(STATUS_COLOR).map(s => <option key={s}>{s}</option>)}
+            </select>
             <input type="date" value={tForm.due_date} onChange={e => setTForm(f => ({ ...f, due_date: e.target.value }))}
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: tForm.due_date ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
           </div>
@@ -279,10 +296,18 @@ export default function TodoPage() {
               <div key={t.id} onClick={() => setSelected(selected?.id === t.id ? null : t)}
                 style={{
                   background: selected?.id === t.id ? "#151820" : "#11141c",
-                  border: `1px solid ${selected?.id === t.id ? (urgent ? "#f59e0b" : "#7c5cfc") : "#1e2130"}`,
+                  border: `1px solid ${selected?.id === t.id ? (STATUS_COLOR[t.status] || "#7c5cfc") : "#1e2130"}`,
                   borderRadius: 10, padding: "12px 16px", cursor: "pointer", minWidth: 160, position: "relative",
                 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#e8eaf0", marginBottom: 6, paddingRight: 20 }}>{t.title}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: t.due_date ? 4 : 0 }}>
+                  <select value={t.status || "진행중"}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => { e.stopPropagation(); changeStatus(t.id, e.target.value); }}
+                    style={{ background: (STATUS_COLOR[t.status] || "#4a4d5e") + "22", border: `1px solid ${(STATUS_COLOR[t.status] || "#4a4d5e")}55`, borderRadius: 4, padding: "2px 6px", color: STATUS_COLOR[t.status] || "#4a4d5e", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    {Object.keys(STATUS_COLOR).map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
                 {t.due_date && (
                   <div style={{ fontSize: 11, color: urgent ? "#f59e0b" : "#4a4d5e", fontWeight: urgent ? 700 : 400 }}>
                     {formatDue(t.due_date)}
