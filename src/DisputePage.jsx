@@ -281,6 +281,9 @@ export default function DisputePage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
+      <input ref={fileInputRef} type="file" multiple
+        style={{ display: "none" }}
+        onChange={e => { setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ""; }} />
 
       {/* ── 사건 목록 ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -481,9 +484,6 @@ export default function DisputePage() {
 
                 {/* 하단 버튼 */}
                 <div style={{ display: "flex", gap: 6 }}>
-                  <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
-                    style={{ display: "none" }}
-                    onChange={e => { setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ""; }} />
                   <button onClick={() => fileInputRef.current?.click()}
                     style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                     📎 파일
