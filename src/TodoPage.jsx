@@ -259,7 +259,7 @@ export default function TodoPage() {
       {/* 추가 폼 */}
       {showAdd && (
         <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
             <input value={tForm.title} onChange={e => setTForm(f => ({ ...f, title: e.target.value }))}
               placeholder="할 일 제목"
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
@@ -267,8 +267,6 @@ export default function TodoPage() {
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
               {Object.keys(STATUS_COLOR).map(s => <option key={s}>{s}</option>)}
             </select>
-            <input type="date" value={tForm.due_date} onChange={e => setTForm(f => ({ ...f, due_date: e.target.value }))}
-              style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: tForm.due_date ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input value={tForm.note} onChange={e => setTForm(f => ({ ...f, note: e.target.value }))}
