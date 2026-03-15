@@ -16,6 +16,32 @@ const STATUS_COLOR = {
   "소멸": "#4a4d5e",
 };
 
+function getDetailUrl(p) {
+  const an = p.applicationNumber || "";
+  const rn = p.registrationNumber || "";
+  switch (p.category) {
+    case "국내특허":
+      return `https://doi.org/10.8080/${an}`;
+    case "해외특허":
+      // PCT 출원번호에서 WO 번호 추출 (예: PCT/KR2024/013385 → WO2025121598)
+      return `https://patentscope.wipo.int/search/en/search.jsf?query=${encodeURIComponent(an)}`;
+    case "상표":
+      return `https://www.kipris.or.kr/search/total.do#query=${encodeURIComponent(an)}`;
+    case "해외상표":
+      if (p.nation === "US")
+        return `https://tsdr.uspto.gov/#caseNumber=${an}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`;
+      if (p.nation === "JP")
+        return `https://www.j-platpat.inpit.go.jp/t0300`;
+      return null;
+    case "디자인":
+      return `https://www.kipris.or.kr/search/total.do#query=${encodeURIComponent(an)}`;
+    case "해외디자인":
+      return null;
+    default:
+      return null;
+  }
+}
+
 function formatDate(d) {
   if (!d || d.length < 8) return "—";
   const s = d.replace(/-/g, "");
@@ -147,10 +173,19 @@ export default function UserPage() {
                   )}
                 </div>
                 {p.abstract && (
-                  <div>
+                  <div style={{ marginBottom: 14 }}>
                     <div style={{ fontSize: 11, color: "#4a4d5e", fontWeight: 700, marginBottom: 6 }}>요약 / 분류</div>
                     <div style={{ fontSize: 12, color: "#8890a4", lineHeight: 1.7 }}>{p.abstract}</div>
                   </div>
+                )}
+                {getDetailUrl(p) && (
+                  <a href={getDetailUrl(p)} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "6px 14px", color: "#4a9eff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                    {p.category === "해외특허" ? "WIPO에서 보기" :
+                     p.nation === "US" ? "USPTO에서 보기" :
+                     p.nation === "JP" ? "J-PlatPat에서 보기" :
+                     "KIPRIS에서 보기"} ↗
+                  </a>
                 )}
               </div>
             )}
