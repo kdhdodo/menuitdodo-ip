@@ -61,7 +61,7 @@ export default function App() {
       <div style={{ background: "#11141c", borderBottom: "1px solid #1e2130", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
           <div style={{ fontSize: 16, fontWeight: 800, background: "linear-gradient(135deg,#7c5cfc,#4a9eff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", whiteSpace: "nowrap" }}>
-            메뉴잇 특허 관리
+            메뉴잇 IP 관리
           </div>
           {(view === "user" || (role !== "admin" && role === "user")) && (
             <div style={{ display: "flex", gap: 4 }}>
