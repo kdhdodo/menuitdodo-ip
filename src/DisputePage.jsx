@@ -69,6 +69,7 @@ export default function DisputePage() {
   const [loading, setLoading]       = useState(true);
   const [cLoading, setCLoading]     = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
+  const [filter, setFilter]         = useState("전체");
   const [dForm, setDForm]           = useState({ title: "", status: "진행중", note: "" });
   const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -282,7 +283,14 @@ export default function DisputePage() {
 
       {/* ── 사건 목록 ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: "#4a4d5e" }}>총 {disputes.length}건</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["전체", ...Object.keys(STATUS_COLOR)].map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{ background: filter === f ? (STATUS_COLOR[f] || "#e8eaf0") + "22" : "transparent", border: `1px solid ${filter === f ? (STATUS_COLOR[f] || "#e8eaf0") : "#1e2130"}`, borderRadius: 6, padding: "4px 12px", color: filter === f ? (STATUS_COLOR[f] || "#e8eaf0") : "#4a4d5e", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              {f}
+            </button>
+          ))}
+        </div>
         <button onClick={() => setShowAdd(v => !v)}
           style={{ background: showAdd ? "#2a2d3a" : "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
           {showAdd ? "취소" : "+ 사건 추가"}
@@ -320,7 +328,7 @@ export default function DisputePage() {
         <div style={{ padding: 32, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>등록된 사건이 없습니다</div>
       ) : (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 32 }}>
-          {disputes.map(d => (
+          {disputes.filter(d => filter === "전체" || d.status === filter).map(d => (
             <div key={d.id} onClick={() => setSelected(selected?.id === d.id ? null : d)}
               style={{
                 background: selected?.id === d.id ? "#151820" : "#11141c",
