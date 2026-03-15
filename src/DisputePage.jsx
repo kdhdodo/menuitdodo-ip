@@ -186,6 +186,19 @@ export default function DisputePage() {
     loadComments(selected.id);
   }
 
+  function onPaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItems = Array.from(items).filter(item => item.type.startsWith("image/"));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    const files = imageItems.map(item => {
+      const blob = item.getAsFile();
+      return new File([blob], `붙여넣기_${Date.now()}.png`, { type: blob.type });
+    });
+    setPendingFiles(prev => [...prev, ...files]);
+  }
+
   function addLink() {
     if (!linkInput.url.trim()) return;
     let url = linkInput.url.trim();
@@ -416,7 +429,8 @@ export default function DisputePage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <textarea value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
-                  placeholder="의견 입력 (Enter로 등록, Shift+Enter로 줄바꿈)"
+                  onPaste={onPaste}
+                  placeholder="의견 입력 (Enter로 등록, Shift+Enter로 줄바꿈, 이미지 Ctrl+V)"
                   rows={1}
                   style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", overflowY: "hidden", lineHeight: 1.6, minHeight: 36, fieldSizing: "content" }} />
 
