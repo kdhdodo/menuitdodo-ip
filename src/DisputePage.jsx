@@ -76,6 +76,7 @@ export default function DisputePage() {
   const [linkInput, setLinkInput]   = useState({ url: "", label: "" });
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [saving, setSaving]         = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const timelineRef                 = useRef(null);
   const fileInputRef                = useRef(null);
   const dragItem                    = useRef(null);
@@ -167,7 +168,8 @@ export default function DisputePage() {
     const authorName = isCustom
       ? cForm.custom_name.trim()
       : (() => { const m = members.find(m => m.id === cForm.author_id); return m?.name || m?.email || ""; })();
-    if (!cForm.content.trim() || !authorName) return;
+    if (!authorName) return;
+    if (!cForm.content.trim() && pendingFiles.length === 0 && pendingLinks.length === 0) return;
     setSaving(true);
 
     const uploadedFiles = pendingFiles.length > 0 ? await uploadFiles(pendingFiles) : [];
@@ -274,8 +276,8 @@ export default function DisputePage() {
     setDropIndex(null);
   }
 
-  const canSubmit = cForm.content.trim() && cForm.author_id &&
-    (cForm.author_id !== "__custom__" || cForm.custom_name.trim());
+  const hasAuthor = cForm.author_id && (cForm.author_id !== "__custom__" || cForm.custom_name.trim());
+  const canSubmit = hasAuthor && (cForm.content.trim() || pendingFiles.length > 0 || pendingLinks.length > 0);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
