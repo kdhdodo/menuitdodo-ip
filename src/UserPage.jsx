@@ -52,7 +52,7 @@ const CATEGORIES = ["전체", "국내특허", "해외특허", "상표", "해외�
 
 export default function UserPage() {
   const [patents, setPatents]         = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
   const [expanded, setExpanded]       = useState(null);
   const [search, setSearch]           = useState("");
@@ -61,9 +61,27 @@ export default function UserPage() {
   const [failed, setFailed]           = useState([]);
   const [retrying, setRetrying]       = useState([]);
 
-  useEffect(() => { load(); }, []);
-
   const PROXY = "https://djnsbwsguqirskimukxh.supabase.co/functions/v1/kipris-proxy";
+  const CACHE_KEY = "menuit_ip_cache";
+
+  // 진입 시 캐시에서 복원
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const { patents: p, failed: f, lastUpdated: t } = JSON.parse(raw);
+        setPatents(p || []);
+        setFailed(f || []);
+        if (t) setLastUpdated(new Date(t));
+      }
+    } catch { /* 무시 */ }
+  }, []);
+
+  function saveCache(patents, failed, date) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ patents, failed, lastUpdated: date }));
+    } catch { /* 무시 */ }
+  }
 
   async function load() {
     setLoading(true); setError("");
@@ -71,9 +89,11 @@ export default function UserPage() {
       const res = await fetch(PROXY, { headers: { "Content-Type": "application/json" } });
       const { patents: data, error: err, failed: f } = await res.json();
       if (err) throw new Error(err);
+      const now = new Date();
       setPatents(data || []);
       setFailed(f || []);
-      setLastUpdated(new Date());
+      setLastUpdated(now);
+      saveCache(data || [], f || [], now);
     } catch (e) {
       setError(e.message);
     }
@@ -87,16 +107,15 @@ export default function UserPage() {
         headers: { "Content-Type": "application/json" }
       });
       const { patents: data, failed: f } = await res.json();
-      // 해당 카테고리 기존 데이터 교체
-      setPatents(prev => [
-        ...prev.filter(p => !cats.includes(p.category)),
-        ...(data || []),
-      ]);
-      setFailed(prev => [
-        ...prev.filter(c => !cats.includes(c)),
-        ...(f || []),
-      ]);
-      setLastUpdated(new Date());
+      const now = new Date();
+      setPatents(prev => {
+        const merged = [...prev.filter(p => !cats.includes(p.category)), ...(data || [])];
+        const newFailed = [...failed.filter(c => !cats.includes(c)), ...(f || [])];
+        saveCache(merged, newFailed, now);
+        return merged;
+      });
+      setFailed(prev => [...prev.filter(c => !cats.includes(c)), ...(f || [])]);
+      setLastUpdated(now);
     } catch { /* 무시 */ }
     setRetrying([]);
   }
