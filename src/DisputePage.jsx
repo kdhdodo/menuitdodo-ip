@@ -24,6 +24,10 @@ export default function DisputePage() {
   const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
   const [saving, setSaving]         = useState(false);
   const timelineRef                 = useRef(null);
+  const dragItem                    = useRef(null);
+  const dragOverItem                = useRef(null);
+  const [dragIndex, setDragIndex]   = useState(null);
+  const [dropIndex, setDropIndex]   = useState(null);
 
   useEffect(() => {
     loadDisputes();
@@ -59,6 +63,7 @@ export default function DisputePage() {
       .from("dispute_comments")
       .select("*")
       .eq("dispute_id", disputeId)
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
     setComments(data || []);
     setCLoading(false);
@@ -87,11 +92,14 @@ export default function DisputePage() {
       : (() => { const m = members.find(m => m.id === cForm.author_id); return m?.name || m?.email || ""; })();
     if (!cForm.content.trim() || !authorName) return;
     setSaving(true);
+    // 새 댓글은 맨 끝에 추가 (현재 최대 sort_order + 1)
+    const maxOrder = comments.reduce((max, c) => Math.max(max, c.sort_order ?? 0), 0);
     await supabase.from("dispute_comments").insert({
       dispute_id:  selected.id,
       author_id:   isCustom ? null : cForm.author_id,
       author_name: authorName,
       content:     cForm.content.trim(),
+      sort_order:  maxOrder + 1,
     });
     setCForm(f => ({ ...f, content: "" }));
     setSaving(false);
@@ -114,6 +122,55 @@ export default function DisputePage() {
     await supabase.from("disputes").update({ status }).eq("id", id);
     setDisputes(prev => prev.map(d => d.id === id ? { ...d, status } : d));
     if (selected?.id === id) setSelected(s => ({ ...s, status }));
+  }
+
+  // ── 드래그 앤 드롭 ────────────────────────────────────────────
+  function onDragStart(e, index) {
+    dragItem.current = index;
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDragEnter(index) {
+    dragOverItem.current = index;
+    setDropIndex(index);
+  }
+
+  function onDragEnd() {
+    setDragIndex(null);
+    setDropIndex(null);
+  }
+
+  async function onDrop() {
+    const from = dragItem.current;
+    const to   = dragOverItem.current;
+    if (from === null || to === null || from === to) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+
+    const reordered = [...comments];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+
+    // 새 sort_order 부여 (1-based)
+    const updated = reordered.map((c, i) => ({ ...c, sort_order: i + 1 }));
+    setComments(updated);
+
+    // DB 일괄 업데이트
+    await Promise.all(
+      updated.map(c =>
+        supabase.from("dispute_comments").update({ sort_order: c.sort_order }).eq("id", c.id)
+      )
+    );
+
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setDragIndex(null);
+    setDropIndex(null);
   }
 
   return (
@@ -200,15 +257,32 @@ export default function DisputePage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 0, marginBottom: 24, position: "relative" }}>
               {/* 타임라인 세로선 */}
               <div style={{ position: "absolute", left: 19, top: 0, bottom: 0, width: 2, background: "#1e2130" }} />
-              {comments.map((c) => (
-                <div key={c.id} style={{ display: "flex", gap: 16, paddingBottom: 20, position: "relative" }}>
+              {comments.map((c, i) => (
+                <div key={c.id}
+                  draggable
+                  onDragStart={e => onDragStart(e, i)}
+                  onDragEnter={() => onDragEnter(i)}
+                  onDragEnd={onDragEnd}
+                  onDrop={onDrop}
+                  onDragOver={e => e.preventDefault()}
+                  style={{
+                    display: "flex", gap: 16, paddingBottom: 20, position: "relative",
+                    opacity: dragIndex === i ? 0.4 : 1,
+                    borderTop: dropIndex === i && dragIndex !== i ? "2px solid #7c5cfc" : "2px solid transparent",
+                    transition: "opacity 0.15s",
+                    cursor: "grab",
+                  }}>
                   {/* 타임라인 점 */}
                   <div style={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 2 }}>
                     <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#7c5cfc", border: "2px solid #0d0f14", zIndex: 1 }} />
                   </div>
                   <div style={{ flex: 1, background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "12px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{c.author_name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {/* 드래그 핸들 */}
+                        <span style={{ color: "#2a2d3a", fontSize: 14, cursor: "grab", userSelect: "none", letterSpacing: "-1px" }}>⠿</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{c.author_name}</span>
+                      </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 11, color: "#4a4d5e" }}>{formatCommentDate(c.created_at)}</span>
                         <button onClick={() => removeComment(c.id)}
