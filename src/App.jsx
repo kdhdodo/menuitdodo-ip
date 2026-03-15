@@ -65,7 +65,7 @@ export default function App() {
           </div>
           {(view === "user" || (role !== "admin" && role === "user")) && (
             <div style={{ display: "flex", gap: 4 }}>
-              {[["patents", "특허 목록"], ["todos", "할 일"]].map(([key, label]) => (
+              {[["todos", "TODO"], ["patents", "특허 목록"]].map(([key, label]) => (
                 <div key={key} onClick={() => setSubView(key)}
                   style={{ padding: "0 12px", fontSize: 13, fontWeight: 700, cursor: "pointer",
                     color: subView === key ? "#7c5cfc" : "#4a4d5e",
