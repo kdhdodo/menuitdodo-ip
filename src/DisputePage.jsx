@@ -76,7 +76,6 @@ export default function DisputePage() {
   const [linkInput, setLinkInput]   = useState({ url: "", label: "" });
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [saving, setSaving]         = useState(false);
-  const [uploadError, setUploadError] = useState("");
   const timelineRef                 = useRef(null);
   const dragItem                    = useRef(null);
   const dragOverItem                = useRef(null);
@@ -480,9 +479,10 @@ export default function DisputePage() {
 
                 {/* 하단 버튼 */}
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <label style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    📎 파일 {pendingFiles.length > 0 && <span style={{ color: "#7c5cfc", fontWeight: 700 }}>({pendingFiles.length})</span>}
+                  <label style={{ position: "relative", background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: pendingFiles.length > 0 ? "#7c5cfc" : "#4a4d5e", fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+                    📎 파일{pendingFiles.length > 0 && <span style={{ fontWeight: 700 }}>({pendingFiles.length})</span>}
                     <input type="file" multiple
+                      style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", fontSize: 0 }}
                       onChange={e => {
                         const files = Array.from(e.target.files || []);
                         if (files.length > 0) setPendingFiles(prev => [...prev, ...files]);
