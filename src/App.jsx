@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 import Login from "./Login";
 import AdminPage from "./AdminPage";
@@ -11,6 +11,7 @@ export default function App() {
   const [loading, setLoading]  = useState(true);
   const [profile, setProfile]  = useState(null);
   const [view, setView]        = useState("admin");
+  const viewInitialized        = useRef(false);
 
 
   useEffect(() => {
@@ -21,18 +22,22 @@ export default function App() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s) loadProfile(s.user.id);
-      else { setProfile(null); setLoading(false); }
+      if (s) loadProfile(s.user.id, false);
+      else { setProfile(null); setLoading(false); viewInitialized.current = false; }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  async function loadProfile(uid) {
+  async function loadProfile(uid, setViewOnLoad = true) {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     setProfile(data);
-    const r = data?.role || "external";
-    const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : r;
-    setView(resolvedRole);
+    // view는 최초 1회만 역할 기반으로 설정, 이후 토큰 갱신 등에선 건드리지 않음
+    if (setViewOnLoad && !viewInitialized.current) {
+      const r = data?.role || "external";
+      const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : r;
+      setView(resolvedRole);
+      viewInitialized.current = true;
+    }
     setLoading(false);
   }
 
