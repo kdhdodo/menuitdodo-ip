@@ -314,10 +314,11 @@ export default function DisputePage() {
                     style={{ background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
                 )}
               </div>
-              <input value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
+              <textarea value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
-                placeholder="의견 입력 (Enter로 등록)"
-                style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                placeholder="의견 입력 (Enter로 등록, Shift+Enter로 줄바꿈)"
+                rows={1}
+                style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", overflowY: "hidden", lineHeight: 1.6, minHeight: 36, fieldSizing: "content" }} />
               <button onClick={addComment}
                 disabled={saving || !cForm.content.trim() || !cForm.author_id || (cForm.author_id === "__custom__" && !cForm.custom_name.trim())}
                 style={{ background: (cForm.content.trim() && cForm.author_id && (cForm.author_id !== "__custom__" || cForm.custom_name.trim())) ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
