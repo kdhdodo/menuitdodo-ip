@@ -41,7 +41,8 @@ export default function App() {
   );
   if (!session) return <Login />;
 
-  const role = profile?.role || "external";
+  const rawRole = profile?.role || "external";
+  const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
 
   // 탭 목록: 관리자만 두 탭 보임
   const tabs = role === "admin"
