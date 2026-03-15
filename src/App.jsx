@@ -44,12 +44,41 @@ export default function App() {
     setLoading(false);
   }
 
+  const [nickname, setNickname] = useState("");
+  const [nickSaving, setNickSaving] = useState(false);
+
+  async function saveNickname() {
+    if (!nickname.trim()) return;
+    setNickSaving(true);
+    await supabase.from("profiles").update({ name: nickname.trim() }).eq("id", session.user.id);
+    setProfile(p => ({ ...p, name: nickname.trim() }));
+    setNickSaving(false);
+  }
+
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#0d0f14", display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4d5e", fontFamily: "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif" }}>
       로딩 중...
     </div>
   );
   if (!session) return <Login />;
+
+  // 로그인됐지만 닉네임 미설정 시 닉네임 입력 화면
+  if (session && profile && !profile.name) return (
+    <div style={{ minHeight: "100vh", background: "#0d0f14", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif" }}>
+      <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 14, padding: "40px 36px", width: 360, boxSizing: "border-box" }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#e8eaf0", marginBottom: 6 }}>닉네임 설정</div>
+        <div style={{ fontSize: 13, color: "#4a4d5e", marginBottom: 28 }}>앱에서 사용할 이름을 입력해주세요</div>
+        <input value={nickname} onChange={e => setNickname(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && saveNickname()}
+          placeholder="닉네임 입력"
+          style={{ width: "100%", boxSizing: "border-box", background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 8, padding: "10px 12px", color: "#e8eaf0", fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16 }} />
+        <button onClick={saveNickname} disabled={nickSaving || !nickname.trim()}
+          style={{ width: "100%", background: nickname.trim() ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 8, padding: "12px", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+          {nickSaving ? "저장 중..." : "시작하기"}
+        </button>
+      </div>
+    </div>
+  );
 
   const rawRole = profile?.role || "external";
   const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
@@ -79,7 +108,7 @@ export default function App() {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, color: "#4a4d5e" }}>{session.user.email}</span>
+          <span style={{ fontSize: 12, color: "#4a4d5e" }}>{profile?.name || session.user.email}</span>
           {role === "admin" && view === "admin" && (
             <button onClick={() => setView("user")}
               style={{ background: "transparent", border: "1px solid #1e2130", color: "#4a9eff", borderRadius: 7, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
