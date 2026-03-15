@@ -18,7 +18,6 @@ const STATUS_COLOR = {
 
 function getDetailUrl(p) {
   const an = p.applicationNumber || "";
-  const rn = p.registrationNumber || "";
   switch (p.category) {
     case "국내특허":
       return `https://doi.org/10.8080/${an}`;
@@ -58,6 +57,7 @@ export default function UserPage() {
   const [expanded, setExpanded]       = useState(null);
   const [search, setSearch]           = useState("");
   const [activeCategory, setActiveCategory] = useState("전체");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => { load(); }, []);
 
@@ -70,6 +70,7 @@ export default function UserPage() {
       const { patents: data, error: err } = await res.json();
       if (err) throw new Error(err);
       setPatents(data || []);
+      setLastUpdated(new Date());
     } catch (e) {
       setError(e.message);
     }
@@ -87,6 +88,19 @@ export default function UserPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
+
+      {/* 업데이트 버튼 */}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        {lastUpdated && (
+          <span style={{ fontSize: 12, color: "#4a4d5e" }}>
+            마지막 업데이트: {lastUpdated.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+        <button onClick={load} disabled={loading}
+          style={{ background: loading ? "#1e2130" : "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "7px 16px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>
+          {loading ? "조회 중..." : "↻ 업데이트"}
+        </button>
+      </div>
 
       {/* 카테고리 탭 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
