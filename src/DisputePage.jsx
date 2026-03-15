@@ -44,6 +44,7 @@ export default function DisputePage() {
       .select("*")
       .order("created_at", { ascending: false });
     setDisputes(data || []);
+    if (data?.length > 0) setSelected(prev => prev ?? data[0]);
     setLoading(false);
   }
 
