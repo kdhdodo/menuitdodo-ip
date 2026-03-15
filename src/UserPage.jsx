@@ -59,15 +59,16 @@ export default function UserPage() {
   const [activeCategory, setActiveCategory] = useState("전체");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [failed, setFailed]           = useState([]);
+  const [retrying, setRetrying]       = useState([]);
 
   useEffect(() => { load(); }, []);
 
+  const PROXY = "https://djnsbwsguqirskimukxh.supabase.co/functions/v1/kipris-proxy";
+
   async function load() {
-    setLoading(true);
+    setLoading(true); setError("");
     try {
-      const res = await fetch("https://djnsbwsguqirskimukxh.supabase.co/functions/v1/kipris-proxy", {
-        headers: { "Content-Type": "application/json" }
-      });
+      const res = await fetch(PROXY, { headers: { "Content-Type": "application/json" } });
       const { patents: data, error: err, failed: f } = await res.json();
       if (err) throw new Error(err);
       setPatents(data || []);
@@ -77,6 +78,27 @@ export default function UserPage() {
       setError(e.message);
     }
     setLoading(false);
+  }
+
+  async function retry(cats) {
+    setRetrying(cats);
+    try {
+      const res = await fetch(`${PROXY}?categories=${encodeURIComponent(cats.join(","))}`, {
+        headers: { "Content-Type": "application/json" }
+      });
+      const { patents: data, failed: f } = await res.json();
+      // 해당 카테고리 기존 데이터 교체
+      setPatents(prev => [
+        ...prev.filter(p => !cats.includes(p.category)),
+        ...(data || []),
+      ]);
+      setFailed(prev => [
+        ...prev.filter(c => !cats.includes(c)),
+        ...(f || []),
+      ]);
+      setLastUpdated(new Date());
+    } catch { /* 무시 */ }
+    setRetrying([]);
   }
 
   const filtered = patents.filter(p => {
@@ -94,13 +116,21 @@ export default function UserPage() {
       {/* 업데이트 버튼 */}
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         {failed.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#ff5050" }}>조회 실패:</span>
-            {failed.map(cat => (
-              <span key={cat} style={{ background: "#ff505022", color: "#ff5050", border: "1px solid #ff505055", borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 700 }}>
-                {cat}
-              </span>
-            ))}
+            {failed.map(cat => {
+              const isRetrying = retrying.includes(cat);
+              return (
+                <button key={cat} onClick={() => retry([cat])} disabled={isRetrying || loading}
+                  style={{ background: "#ff505022", color: "#ff5050", border: "1px solid #ff505055", borderRadius: 4, padding: "2px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {isRetrying ? "..." : `↻ ${cat}`}
+                </button>
+              );
+            })}
+            <button onClick={() => retry(failed)} disabled={retrying.length > 0 || loading}
+              style={{ background: "transparent", color: "#ff5050", border: "1px solid #ff505055", borderRadius: 4, padding: "2px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              전체 재시도
+            </button>
           </div>
         )}
         {lastUpdated && (
