@@ -7,12 +7,9 @@ const STATUS_COLOR = {
   "보류":   "#4a4d5e",
 };
 
-function timeAgo(ts) {
-  const diff = Math.floor((new Date() - new Date(ts)) / 1000);
-  if (diff < 60)   return "방금";
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  return new Date(ts).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+function formatCommentDate(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
 }
 
 export default function DisputePage() {
@@ -213,7 +210,7 @@ export default function DisputePage() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{c.author_name}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 11, color: "#4a4d5e" }}>{timeAgo(c.created_at)}</span>
+                        <span style={{ fontSize: 11, color: "#4a4d5e" }}>{formatCommentDate(c.created_at)}</span>
                         <button onClick={() => removeComment(c.id)}
                           style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 14, cursor: "pointer", padding: 0 }}>×</button>
                       </div>
