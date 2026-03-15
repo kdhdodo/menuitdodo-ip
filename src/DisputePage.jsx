@@ -24,7 +24,7 @@ export default function DisputePage() {
   const [cLoading, setCLoading]     = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
   const [dForm, setDForm]           = useState({ title: "", status: "진행중", note: "" });
-  const [cForm, setCForm]           = useState({ author_id: "", content: "" });
+  const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
   const [saving, setSaving]         = useState(false);
   const timelineRef                 = useRef(null);
 
@@ -83,13 +83,16 @@ export default function DisputePage() {
   }
 
   async function addComment() {
-    if (!cForm.content.trim() || !cForm.author_id) return;
+    const isCustom = cForm.author_id === "__custom__";
+    const authorName = isCustom
+      ? cForm.custom_name.trim()
+      : (() => { const m = members.find(m => m.id === cForm.author_id); return m?.name || m?.email || ""; })();
+    if (!cForm.content.trim() || !authorName) return;
     setSaving(true);
-    const member = members.find(m => m.id === cForm.author_id);
     await supabase.from("dispute_comments").insert({
       dispute_id:  selected.id,
-      author_id:   cForm.author_id,
-      author_name: member?.name || member?.email || "알 수 없음",
+      author_id:   isCustom ? null : cForm.author_id,
+      author_name: authorName,
       content:     cForm.content.trim(),
     });
     setCForm(f => ({ ...f, content: "" }));
@@ -199,7 +202,7 @@ export default function DisputePage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 0, marginBottom: 24, position: "relative" }}>
               {/* 타임라인 세로선 */}
               <div style={{ position: "absolute", left: 19, top: 0, bottom: 0, width: 2, background: "#1e2130" }} />
-              {comments.map((c, i) => (
+              {comments.map((c) => (
                 <div key={c.id} style={{ display: "flex", gap: 16, paddingBottom: 20, position: "relative" }}>
                   {/* 타임라인 점 */}
                   <div style={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 2 }}>
@@ -224,19 +227,28 @@ export default function DisputePage() {
           {/* 의견 입력 */}
           <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "14px 16px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "180px 1fr auto", gap: 8 }}>
-              <select value={cForm.author_id} onChange={e => setCForm(f => ({ ...f, author_id: e.target.value }))}
-                style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: cForm.author_id ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
-                <option value="">작성자 선택</option>
-                {members.map(m => (
-                  <option key={m.id} value={m.id}>{m.name || m.email}</option>
-                ))}
-              </select>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <select value={cForm.author_id} onChange={e => setCForm(f => ({ ...f, author_id: e.target.value, custom_name: "" }))}
+                  style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: cForm.author_id ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
+                  <option value="">작성자 선택</option>
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                  ))}
+                  <option value="__custom__">직접 입력</option>
+                </select>
+                {cForm.author_id === "__custom__" && (
+                  <input value={cForm.custom_name} onChange={e => setCForm(f => ({ ...f, custom_name: e.target.value }))}
+                    placeholder="이름 입력"
+                    style={{ background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                )}
+              </div>
               <input value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
                 placeholder="의견 입력 (Enter로 등록)"
                 style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-              <button onClick={addComment} disabled={saving || !cForm.content.trim() || !cForm.author_id}
-                style={{ background: (cForm.content.trim() && cForm.author_id) ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={addComment}
+                disabled={saving || !cForm.content.trim() || !cForm.author_id || (cForm.author_id === "__custom__" && !cForm.custom_name.trim())}
+                style={{ background: (cForm.content.trim() && cForm.author_id && (cForm.author_id !== "__custom__" || cForm.custom_name.trim())) ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
                 {saving ? "..." : "등록"}
               </button>
             </div>
