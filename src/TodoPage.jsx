@@ -1,183 +1,455 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
-const TYPES = ["갱신예정", "신규등록예정", "기타"];
+function formatCommentDate(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
 
-const TYPE_COLOR = {
-  "갱신예정":    "#f59e0b",
-  "신규등록예정": "#7c5cfc",
-  "기타":        "#4a4d5e",
-};
-
-function formatDate(d) {
-  if (!d) return "—";
-  return d.replace(/-/g, ".");
+function formatDue(due) {
+  if (!due) return null;
+  return due.replace(/-/g, ".");
 }
 
 function daysLeft(due) {
   if (!due) return null;
-  const diff = Math.ceil((new Date(due) - new Date()) / 86400000);
-  return diff;
+  return Math.ceil((new Date(due) - new Date()) / 86400000);
+}
+
+function isImage(name) {
+  return /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name);
+}
+
+function AttachmentView({ att }) {
+  if (isImage(att.name)) {
+    return (
+      <a href={att.url} target="_blank" rel="noopener noreferrer">
+        <img src={att.url} alt={att.name}
+          style={{ maxWidth: 200, maxHeight: 160, borderRadius: 6, border: "1px solid #1e2130", objectFit: "cover", cursor: "pointer" }} />
+      </a>
+    );
+  }
+  return (
+    <a href={att.url} target="_blank" rel="noopener noreferrer" download={att.name}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#8890a4", fontSize: 12, textDecoration: "none" }}>
+      📄 {att.name}
+    </a>
+  );
+}
+
+function LinkView({ link }) {
+  return (
+    <a href={link.url} target="_blank" rel="noopener noreferrer"
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a9eff", fontSize: 12, textDecoration: "none", maxWidth: 320, overflow: "hidden" }}>
+      🔗 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.label || link.url}</span>
+    </a>
+  );
 }
 
 export default function TodoPage() {
-  const [todos, setTodos]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving]   = useState(false);
-  const [form, setForm]       = useState({ title: "", type: "갱신예정", due_date: "", note: "" });
-  const [filter, setFilter]   = useState("전체");
+  const [todos, setTodos]           = useState([]);
+  const [selected, setSelected]     = useState(null);
+  const [comments, setComments]     = useState([]);
+  const [members, setMembers]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [cLoading, setCLoading]     = useState(false);
+  const [showAdd, setShowAdd]       = useState(false);
+  const [tForm, setTForm]           = useState({ title: "", due_date: "", note: "" });
+  const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [pendingLinks, setPendingLinks] = useState([]);
+  const [linkInput, setLinkInput]   = useState({ url: "", label: "" });
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const timelineRef                 = useRef(null);
+  const dragItem                    = useRef(null);
+  const dragOverItem                = useRef(null);
+  const [dragIndex, setDragIndex]   = useState(null);
+  const [dropIndex, setDropIndex]   = useState(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadTodos(); loadMembers(); }, []);
+  useEffect(() => { if (selected) loadComments(selected.id); }, [selected]);
 
-  async function load() {
+  async function loadTodos() {
     setLoading(true);
     const { data } = await supabase
       .from("patent_todos")
       .select("*")
-      .order("done", { ascending: true })
-      .order("due_date", { ascending: true, nullsLast: true });
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
     setTodos(data || []);
+    if (data?.length > 0) setSelected(prev => prev ?? data[0]);
     setLoading(false);
   }
 
-  async function add() {
-    if (!form.title.trim()) return;
+  async function loadMembers() {
+    const { data } = await supabase.from("profiles").select("id, email, name").order("created_at");
+    setMembers(data || []);
+  }
+
+  async function loadComments(todoId) {
+    setCLoading(true);
+    const { data } = await supabase
+      .from("todo_comments")
+      .select("*")
+      .eq("todo_id", todoId)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+    setComments(data || []);
+    setCLoading(false);
+    setTimeout(() => timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }
+
+  async function addTodo() {
+    if (!tForm.title.trim()) return;
     setSaving(true);
-    await supabase.from("patent_todos").insert({
-      title:    form.title.trim(),
-      type:     form.type,
-      due_date: form.due_date || null,
-      note:     form.note.trim() || null,
-    });
-    setForm({ title: "", type: "갱신예정", due_date: "", note: "" });
-    setShowForm(false);
+    const { data } = await supabase.from("patent_todos").insert({
+      title:    tForm.title.trim(),
+      due_date: tForm.due_date || null,
+      note:     tForm.note.trim() || null,
+    }).select().single();
+    setTForm({ title: "", due_date: "", note: "" });
+    setShowAdd(false);
     setSaving(false);
-    load();
+    await loadTodos();
+    if (data) setSelected(data);
   }
 
-  async function toggleDone(id, done) {
-    await supabase.from("patent_todos").update({ done: !done }).eq("id", id);
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !done } : t));
+  async function uploadFiles(files, todoId) {
+    const results = [];
+    for (const file of files) {
+      const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+      const path = `todos/${todoId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage.from("dispute-files").upload(path, file, { upsert: false });
+      if (error) { console.error("upload error", error); continue; }
+      if (data) {
+        const { data: { publicUrl } } = supabase.storage.from("dispute-files").getPublicUrl(data.path);
+        results.push({ name: file.name, url: publicUrl });
+      }
+    }
+    return results;
   }
 
-  async function remove(id) {
+  async function addComment() {
+    const isCustom = cForm.author_id === "__custom__";
+    const authorName = isCustom
+      ? cForm.custom_name.trim()
+      : (() => { const m = members.find(m => m.id === cForm.author_id); return m?.name || m?.email || ""; })();
+    if (!authorName) return;
+    if (!cForm.content.trim() && pendingFiles.length === 0 && pendingLinks.length === 0) return;
+    setSaving(true);
+    const uploadedFiles = pendingFiles.length > 0 ? await uploadFiles(pendingFiles, selected.id) : [];
+    const maxOrder = comments.reduce((max, c) => Math.max(max, c.sort_order ?? 0), 0);
+    await supabase.from("todo_comments").insert({
+      todo_id:     selected.id,
+      author_id:   isCustom ? null : cForm.author_id,
+      author_name: authorName,
+      content:     cForm.content.trim(),
+      sort_order:  maxOrder + 1,
+      attachments: uploadedFiles,
+      links:       pendingLinks,
+    });
+    setCForm(f => ({ ...f, content: "" }));
+    setPendingFiles([]);
+    setPendingLinks([]);
+    setShowLinkForm(false);
+    setLinkInput({ url: "", label: "" });
+    setSaving(false);
+    loadComments(selected.id);
+  }
+
+  function addLink() {
+    if (!linkInput.url.trim()) return;
+    let url = linkInput.url.trim();
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    setPendingLinks(prev => [...prev, { url, label: linkInput.label.trim() || url }]);
+    setLinkInput({ url: "", label: "" });
+    setShowLinkForm(false);
+  }
+
+  function onPaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItems = Array.from(items).filter(item => item.type.startsWith("image/"));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    const files = imageItems.map(item => {
+      const blob = item.getAsFile();
+      return new File([blob], `붙여넣기_${Date.now()}.png`, { type: blob.type });
+    });
+    setPendingFiles(prev => [...prev, ...files]);
+  }
+
+  async function removeTodo(id) {
     if (!confirm("삭제하시겠습니까?")) return;
-    await supabase.from("patent_todos").delete().eq("id", id);
-    setTodos(prev => prev.filter(t => t.id !== id));
+    await supabase.from("patent_todos").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    if (selected?.id === id) setSelected(null);
+    loadTodos();
   }
 
-  const filters = ["전체", ...TYPES, "완료"];
-  const filtered = todos.filter(t => {
-    if (filter === "완료") return t.done;
-    if (filter === "전체") return !t.done;
-    return !t.done && t.type === filter;
-  });
+  async function removeComment(id) {
+    await supabase.from("todo_comments").delete().eq("id", id);
+    setComments(prev => prev.filter(c => c.id !== id));
+  }
 
-  const countOf = (f) => {
-    if (f === "완료") return todos.filter(t => t.done).length;
-    if (f === "전체") return todos.filter(t => !t.done).length;
-    return todos.filter(t => !t.done && t.type === f).length;
-  };
+  function onDragStart(e, index) {
+    dragItem.current = index;
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDragEnter(index) {
+    dragOverItem.current = index;
+    setDropIndex(index);
+  }
+
+  function onDragEnd() {
+    setDragIndex(null);
+    setDropIndex(null);
+  }
+
+  async function onDrop() {
+    const from = dragItem.current;
+    const to   = dragOverItem.current;
+    if (from === null || to === null || from === to) {
+      dragItem.current = null; dragOverItem.current = null;
+      setDragIndex(null); setDropIndex(null);
+      return;
+    }
+    const reordered = [...comments];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const updated = reordered.map((c, i) => ({ ...c, sort_order: i + 1 }));
+    setComments(updated);
+    await Promise.all(updated.map(c =>
+      supabase.from("todo_comments").update({ sort_order: c.sort_order }).eq("id", c.id)
+    ));
+    dragItem.current = null; dragOverItem.current = null;
+    setDragIndex(null); setDropIndex(null);
+  }
+
+  const hasAuthor = cForm.author_id && (cForm.author_id !== "__custom__" || cForm.custom_name.trim());
+  const canSubmit = hasAuthor && (cForm.content.trim() || pendingFiles.length > 0 || pendingLinks.length > 0);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
 
-      {/* 툴바 */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {filters.map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{
-                background: filter === f ? (TYPE_COLOR[f] || "#e8eaf0") + "22" : "#11141c",
-                border: `1px solid ${filter === f ? (TYPE_COLOR[f] || "#e8eaf0") : "#1e2130"}`,
-                borderRadius: 8, padding: "6px 14px", cursor: "pointer",
-                color: filter === f ? (TYPE_COLOR[f] || "#e8eaf0") : "#4a4d5e",
-                fontSize: 12, fontWeight: 700,
-              }}>
-              {f} {countOf(f) > 0 && <span style={{ opacity: 0.7 }}>({countOf(f)})</span>}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => setShowForm(v => !v)}
-          style={{ background: showForm ? "#2a2d3a" : "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-          {showForm ? "취소" : "+ 추가"}
+      {/* ── 할 일 목록 ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: "#4a4d5e" }}>총 {todos.length}건</div>
+        <button onClick={() => setShowAdd(v => !v)}
+          style={{ background: showAdd ? "#2a2d3a" : "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "8px 18px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          {showAdd ? "취소" : "+ 추가"}
         </button>
       </div>
 
       {/* 추가 폼 */}
-      {showForm && (
-        <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+      {showAdd && (
+        <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+            <input value={tForm.title} onChange={e => setTForm(f => ({ ...f, title: e.target.value }))}
               placeholder="할 일 제목"
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-              style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
-              {TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
-            <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-              style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: form.due_date ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+            <input type="date" value={tForm.due_date} onChange={e => setTForm(f => ({ ...f, due_date: e.target.value }))}
+              style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: tForm.due_date ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-            <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-              placeholder="메모 (선택)"
+            <input value={tForm.note} onChange={e => setTForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="설명 (선택)"
               style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-            <button onClick={add} disabled={saving || !form.title.trim()}
-              style={{ background: form.title.trim() ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={addTodo} disabled={saving || !tForm.title.trim()}
+              style={{ background: tForm.title.trim() ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               {saving ? "..." : "저장"}
             </button>
           </div>
         </div>
       )}
 
-      {/* 목록 */}
+      {/* 카드 목록 */}
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>불러오는 중...</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>
-          {filter === "완료" ? "완료된 항목이 없습니다" : "할 일이 없습니다"}
-        </div>
+        <div style={{ padding: 32, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>불러오는 중...</div>
+      ) : todos.length === 0 ? (
+        <div style={{ padding: 32, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>등록된 할 일이 없습니다</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtered.map(t => {
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 32 }}>
+          {todos.map(t => {
             const dl = daysLeft(t.due_date);
-            const urgent = dl !== null && dl <= 7 && !t.done;
+            const urgent = dl !== null && dl <= 7;
             return (
-              <div key={t.id} style={{ background: "#11141c", border: `1px solid ${urgent ? "#f59e0b44" : "#1e2130"}`, borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
-                {/* 체크박스 */}
-                <div onClick={() => toggleDone(t.id, t.done)}
-                  style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${t.done ? "#10b981" : "#2a2d3a"}`, background: t.done ? "#10b981" : "transparent", flexShrink: 0, cursor: "pointer", marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>
-                  {t.done && "✓"}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: t.note ? 4 : 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: t.done ? "#4a4d5e" : "#e8eaf0", textDecoration: t.done ? "line-through" : "none" }}>
-                      {t.title}
-                    </span>
-                    <span style={{ background: (TYPE_COLOR[t.type] || "#4a4d5e") + "22", color: TYPE_COLOR[t.type] || "#4a4d5e", border: `1px solid ${(TYPE_COLOR[t.type] || "#4a4d5e")}55`, borderRadius: 4, padding: "1px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {t.type}
-                    </span>
-                    {t.due_date && (
-                      <span style={{ fontSize: 11, color: urgent ? "#f59e0b" : "#4a4d5e", fontWeight: urgent ? 700 : 400 }}>
-                        {formatDate(t.due_date)}
-                        {!t.done && dl !== null && (
-                          dl === 0 ? " (오늘)" : dl < 0 ? ` (${Math.abs(dl)}일 초과)` : ` (D-${dl})`
-                        )}
-                      </span>
-                    )}
+              <div key={t.id} onClick={() => setSelected(selected?.id === t.id ? null : t)}
+                style={{
+                  background: selected?.id === t.id ? "#151820" : "#11141c",
+                  border: `1px solid ${selected?.id === t.id ? (urgent ? "#f59e0b" : "#7c5cfc") : "#1e2130"}`,
+                  borderRadius: 10, padding: "12px 16px", cursor: "pointer", minWidth: 160, position: "relative",
+                }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#e8eaf0", marginBottom: 6, paddingRight: 20 }}>{t.title}</div>
+                {t.due_date && (
+                  <div style={{ fontSize: 11, color: urgent ? "#f59e0b" : "#4a4d5e", fontWeight: urgent ? 700 : 400 }}>
+                    {formatDue(t.due_date)}
+                    {dl !== null && (dl === 0 ? " (오늘)" : dl < 0 ? ` (${Math.abs(dl)}일 초과)` : ` (D-${dl})`)}
                   </div>
-                  {t.note && <div style={{ fontSize: 12, color: "#4a4d5e", lineHeight: 1.5 }}>{t.note}</div>}
-                </div>
-
-                <button onClick={() => remove(t.id)}
-                  style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 16, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>
-                  ×
-                </button>
+                )}
+                {t.note && <div style={{ fontSize: 11, color: "#4a4d5e", marginTop: 4, lineHeight: 1.4 }}>{t.note}</div>}
+                <button onClick={e => { e.stopPropagation(); removeTodo(t.id); }}
+                  style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 15, cursor: "pointer", padding: "0 2px", position: "absolute", top: 8, right: 8 }}>×</button>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── 타임라인 ── */}
+      {selected && (
+        <div ref={timelineRef}>
+          <div style={{ borderTop: "1px solid #1e2130", paddingTop: 24, marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#e8eaf0" }}>{selected.title}</div>
+            {selected.due_date && (() => {
+              const dl = daysLeft(selected.due_date);
+              const urgent = dl !== null && dl <= 7;
+              return <div style={{ fontSize: 12, color: urgent ? "#f59e0b" : "#4a4d5e", marginTop: 4 }}>
+                {formatDue(selected.due_date)}{dl !== null && (dl === 0 ? " (오늘)" : dl < 0 ? ` (${Math.abs(dl)}일 초과)` : ` (D-${dl})`)}
+              </div>;
+            })()}
+            {selected.note && <div style={{ fontSize: 12, color: "#4a4d5e", marginTop: 4 }}>{selected.note}</div>}
+          </div>
+
+          {cLoading ? (
+            <div style={{ padding: 24, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>불러오는 중...</div>
+          ) : comments.length === 0 ? (
+            <div style={{ padding: 24, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>아직 등록된 내용이 없습니다</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, marginBottom: 24, position: "relative" }}>
+              <div style={{ position: "absolute", left: 19, top: 0, bottom: 0, width: 2, background: "#1e2130" }} />
+              {comments.map((c, i) => (
+                <div key={c.id}
+                  draggable
+                  onDragStart={e => onDragStart(e, i)}
+                  onDragEnter={() => onDragEnter(i)}
+                  onDragEnd={onDragEnd}
+                  onDrop={onDrop}
+                  onDragOver={e => e.preventDefault()}
+                  style={{
+                    display: "flex", gap: 16, paddingBottom: 20, position: "relative",
+                    opacity: dragIndex === i ? 0.4 : 1,
+                    borderTop: dropIndex === i && dragIndex !== i ? "2px solid #7c5cfc" : "2px solid transparent",
+                    transition: "opacity 0.15s", cursor: "grab",
+                  }}>
+                  <div style={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 2 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#7c5cfc", border: "2px solid #0d0f14", zIndex: 1 }} />
+                  </div>
+                  <div style={{ flex: 1, background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ color: "#2a2d3a", fontSize: 14, cursor: "grab", userSelect: "none", letterSpacing: "-1px" }}>⠿</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{c.author_name}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, color: "#4a4d5e" }}>{formatCommentDate(c.created_at)}</span>
+                        <button onClick={() => removeComment(c.id)}
+                          style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 14, cursor: "pointer", padding: 0 }}>×</button>
+                      </div>
+                    </div>
+                    {c.content && <div style={{ fontSize: 13, color: "#e8eaf0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: (c.attachments?.length || c.links?.length) ? 10 : 0 }}>{c.content}</div>}
+                    {c.attachments?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: c.links?.length ? 8 : 0 }}>
+                        {c.attachments.map((att, j) => <AttachmentView key={j} att={att} />)}
+                      </div>
+                    )}
+                    {c.links?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {c.links.map((link, j) => <LinkView key={j} link={link} />)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 입력 */}
+          <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "180px 1fr auto", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <select value={cForm.author_id} onChange={e => setCForm(f => ({ ...f, author_id: e.target.value, custom_name: "" }))}
+                  style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: cForm.author_id ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
+                  <option value="">작성자 선택</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+                  <option value="__custom__">직접 입력</option>
+                </select>
+                {cForm.author_id === "__custom__" && (
+                  <input value={cForm.custom_name} onChange={e => setCForm(f => ({ ...f, custom_name: e.target.value }))}
+                    placeholder="이름 입력"
+                    style={{ background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <textarea value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
+                  onPaste={onPaste}
+                  placeholder="내용 입력 (Enter로 등록, Shift+Enter로 줄바꿈, 이미지 Ctrl+V)"
+                  rows={1}
+                  style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", overflowY: "hidden", lineHeight: 1.6, minHeight: 36, fieldSizing: "content" }} />
+
+                {pendingFiles.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "4px 8px" }}>
+                        <span style={{ fontSize: 11, color: "#8890a4" }}>{isImage(f.name) ? "🖼" : "📄"} {f.name}</span>
+                        <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "transparent", border: "none", color: "#4a4d5e", fontSize: 12, cursor: "pointer", padding: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {pendingLinks.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {pendingLinks.map((link, i) => (
+                      <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "4px 8px" }}>
+                        <span style={{ fontSize: 11, color: "#4a9eff" }}>🔗 {link.label}</span>
+                        <button onClick={() => setPendingLinks(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "transparent", border: "none", color: "#4a4d5e", fontSize: 12, cursor: "pointer", padding: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showLinkForm && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6 }}>
+                    <input value={linkInput.url} onChange={e => setLinkInput(f => ({ ...f, url: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && addLink()}
+                      placeholder="URL (예: https://...)"
+                      style={{ background: "#0d0f14", border: "1px solid #4a9eff55", borderRadius: 7, padding: "7px 10px", color: "#e8eaf0", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                    <input value={linkInput.label} onChange={e => setLinkInput(f => ({ ...f, label: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && addLink()}
+                      placeholder="표시 이름 (선택)"
+                      style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "7px 10px", color: "#e8eaf0", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                    <button onClick={addLink}
+                      style={{ background: "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>추가</button>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 6 }}>
+                  <label style={{ position: "relative", background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: pendingFiles.length > 0 ? "#7c5cfc" : "#4a4d5e", fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+                    📎 파일{pendingFiles.length > 0 && <span style={{ fontWeight: 700 }}>({pendingFiles.length})</span>}
+                    <input type="file" multiple
+                      style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", fontSize: 0 }}
+                      onChange={e => { const files = Array.from(e.target.files || []); if (files.length > 0) setPendingFiles(prev => [...prev, ...files]); e.target.value = ""; }} />
+                  </label>
+                  <button onClick={() => setShowLinkForm(v => !v)}
+                    style={{ background: showLinkForm ? "#1e2130" : "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: showLinkForm ? "#4a9eff" : "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    🔗 URL
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={addComment} disabled={saving || !canSubmit}
+                style={{ background: canSubmit ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
+                {saving ? "..." : "등록"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
