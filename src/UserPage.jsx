@@ -58,6 +58,7 @@ export default function UserPage() {
   const [search, setSearch]           = useState("");
   const [activeCategory, setActiveCategory] = useState("전체");
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [failed, setFailed]           = useState([]);
 
   useEffect(() => { load(); }, []);
 
@@ -67,9 +68,10 @@ export default function UserPage() {
       const res = await fetch("https://djnsbwsguqirskimukxh.supabase.co/functions/v1/kipris-proxy", {
         headers: { "Content-Type": "application/json" }
       });
-      const { patents: data, error: err } = await res.json();
+      const { patents: data, error: err, failed: f } = await res.json();
       if (err) throw new Error(err);
       setPatents(data || []);
+      setFailed(f || []);
       setLastUpdated(new Date());
     } catch (e) {
       setError(e.message);
@@ -90,10 +92,20 @@ export default function UserPage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
 
       {/* 업데이트 버튼 */}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        {failed.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 11, color: "#ff5050" }}>조회 실패:</span>
+            {failed.map(cat => (
+              <span key={cat} style={{ background: "#ff505022", color: "#ff5050", border: "1px solid #ff505055", borderRadius: 4, padding: "2px 7px", fontSize: 11, fontWeight: 700 }}>
+                {cat}
+              </span>
+            ))}
+          </div>
+        )}
         {lastUpdated && (
           <span style={{ fontSize: 12, color: "#4a4d5e" }}>
-            마지막 업데이트: {lastUpdated.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+            {lastUpdated.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준
           </span>
         )}
         <button onClick={load} disabled={loading}
