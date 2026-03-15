@@ -142,12 +142,16 @@ export default function DisputePage() {
   async function uploadFiles(files) {
     const results = [];
     for (const file of files) {
-      const ext = file.name.split(".").pop();
+      const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
       const path = `${selected.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const { data, error } = await supabase.storage
         .from("dispute-files")
         .upload(path, file, { upsert: false });
-      if (!error && data) {
+      if (error) {
+        alert(`파일 업로드 실패: ${file.name}\n${error.message}`);
+        continue;
+      }
+      if (data) {
         const { data: { publicUrl } } = supabase.storage
           .from("dispute-files")
           .getPublicUrl(data.path);
