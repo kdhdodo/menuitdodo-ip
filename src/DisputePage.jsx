@@ -97,6 +97,7 @@ export default function DisputePage() {
     const { data } = await supabase
       .from("disputes")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     setDisputes(data || []);
     if (data?.length > 0) setSelected(prev => prev ?? data[0]);
@@ -213,8 +214,8 @@ export default function DisputePage() {
   }
 
   async function removeDispute(id) {
-    if (!confirm("사건을 삭제하시겠습니까? 관련 의견도 모두 삭제됩니다.")) return;
-    await supabase.from("disputes").delete().eq("id", id);
+    if (!confirm("사건을 삭제하시겠습니까?")) return;
+    await supabase.from("disputes").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (selected?.id === id) setSelected(null);
     loadDisputes();
   }
