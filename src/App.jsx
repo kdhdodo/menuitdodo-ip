@@ -12,7 +12,7 @@ export default function App() {
   const [session, setSession]  = useState(null);
   const [loading, setLoading]  = useState(true);
   const [profile, setProfile]  = useState(null);
-  const [tab, setTab]          = useState("admin"); // 관리자만 탭 전환 가능
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -44,13 +44,7 @@ export default function App() {
   const rawRole = profile?.role || "external";
   const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
 
-  // 탭 목록: 관리자만 두 탭 보임
-  const tabs = role === "admin"
-    ? [{ key: "admin", label: "관리자" }, { key: "user", label: "사용자" }]
-    : [];
-
-  // 현재 보여줄 페이지
-  const activePage = role === "admin" ? tab : role;
+  const activePage = role;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0f14", fontFamily: "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif", color: "#e8eaf0" }}>
@@ -72,19 +66,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* 탭 (관리자만) */}
-      {tabs.length > 0 && (
-        <div style={{ background: "#0d0f14", borderBottom: "1px solid #1e2130", padding: "0 32px" }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", gap: 0 }}>
-            {tabs.map(t => (
-              <div key={t.key} onClick={() => setTab(t.key)}
-                style={{ padding: "12px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", color: tab === t.key ? "#7c5cfc" : "#4a4d5e", borderBottom: tab === t.key ? "2px solid #7c5cfc" : "2px solid transparent", transition: "all .15s" }}>
-                {t.label}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 페이지 */}
       {activePage === "admin"    && <AdminPage />}
