@@ -6,6 +6,7 @@ const CATEGORY_COLOR = {
   "상표":     "#10b981",
   "디자인":   "#f59e0b",
   "해외디자인": "#ec4899",
+  "해외상표": "#f97316",
 };
 
 const STATUS_COLOR = {
@@ -22,7 +23,7 @@ function formatDate(d) {
   return `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6, 8)}`;
 }
 
-const CATEGORIES = ["전체", "국내특허", "해외특허", "상표", "디자인", "해외디자인"];
+const CATEGORIES = ["전체", "국내특허", "해외특허", "상표", "해외상표", "디자인", "해외디자인"];
 
 export default function UserPage() {
   const [patents, setPatents]         = useState([]);
