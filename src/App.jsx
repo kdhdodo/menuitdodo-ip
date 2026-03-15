@@ -10,6 +10,7 @@ export default function App() {
   const [session, setSession]  = useState(null);
   const [loading, setLoading]  = useState(true);
   const [profile, setProfile]  = useState(null);
+  const [view, setView]        = useState("admin");
 
 
   useEffect(() => {
@@ -29,6 +30,9 @@ export default function App() {
   async function loadProfile(uid) {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     setProfile(data);
+    const r = data?.role || "external";
+    const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : r;
+    setView(resolvedRole);
     setLoading(false);
   }
 
@@ -42,7 +46,6 @@ export default function App() {
   const rawRole = profile?.role || "external";
   const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
 
-  const [view, setView] = useState(role); // admin이면 admin/user 전환 가능
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0f14", fontFamily: "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif", color: "#e8eaf0" }}>
