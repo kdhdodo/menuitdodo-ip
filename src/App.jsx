@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import Login from "./Login";
 import AdminPage from "./AdminPage";
 import UserPage from "./UserPage";
+import TodoPage from "./TodoPage";
 import ExternalPage from "./ExternalPage";
 
 
@@ -11,6 +12,7 @@ export default function App() {
   const [loading, setLoading]  = useState(true);
   const [profile, setProfile]  = useState(null);
   const [view, setView]        = useState("admin");
+  const [subView, setSubView]  = useState("patents");
   const viewInitialized        = useRef(false);
 
 
@@ -62,10 +64,16 @@ export default function App() {
             메뉴잇 특허 관리
           </div>
           {(view === "user" || (role !== "admin" && role === "user")) && (
-            <div style={{ display: "flex" }}>
-              <div style={{ padding: "0 4px", fontSize: 13, fontWeight: 700, color: "#7c5cfc", borderBottom: "2px solid #7c5cfc", height: 56, display: "flex", alignItems: "center" }}>
-                특허 목록
-              </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[["patents", "특허 목록"], ["todos", "할 일"]].map(([key, label]) => (
+                <div key={key} onClick={() => setSubView(key)}
+                  style={{ padding: "0 12px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    color: subView === key ? "#7c5cfc" : "#4a4d5e",
+                    borderBottom: subView === key ? "2px solid #7c5cfc" : "2px solid transparent",
+                    height: 56, display: "flex", alignItems: "center" }}>
+                  {label}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -92,9 +100,10 @@ export default function App() {
 
 
       {/* 페이지 */}
-      {view === "admin"    && <AdminPage />}
-      {view === "user"     && <UserPage />}
-      {view === "external" && <ExternalPage />}
+      {view === "admin"                            && <AdminPage />}
+      {view === "user" && subView === "patents"    && <UserPage />}
+      {view === "user" && subView === "todos"      && <TodoPage />}
+      {view === "external"                         && <ExternalPage />}
     </div>
   );
 }
