@@ -12,6 +12,55 @@ function formatCommentDate(ts) {
   return `${d.getMonth() + 1}.${d.getDate()}`;
 }
 
+function isImage(name) {
+  return /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name);
+}
+
+function FilePreview({ file, onRemove }) {
+  const url = URL.createObjectURL(file);
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center", background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, overflow: "hidden" }}>
+      {isImage(file.name) ? (
+        <img src={url} alt={file.name} style={{ width: 56, height: 56, objectFit: "cover" }} />
+      ) : (
+        <div style={{ padding: "6px 10px", fontSize: 11, color: "#8890a4", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          📄 {file.name}
+        </div>
+      )}
+      <button onClick={onRemove}
+        style={{ position: "absolute", top: 2, right: 2, background: "#0d0f14cc", border: "none", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "#e8eaf0", fontSize: 10, cursor: "pointer", padding: 0 }}>
+        ×
+      </button>
+    </div>
+  );
+}
+
+function AttachmentView({ att }) {
+  if (isImage(att.name)) {
+    return (
+      <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block" }}>
+        <img src={att.url} alt={att.name}
+          style={{ maxWidth: 200, maxHeight: 160, borderRadius: 6, border: "1px solid #1e2130", objectFit: "cover", cursor: "pointer" }} />
+      </a>
+    );
+  }
+  return (
+    <a href={att.url} target="_blank" rel="noopener noreferrer" download={att.name}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#8890a4", fontSize: 12, textDecoration: "none" }}>
+      📄 {att.name}
+    </a>
+  );
+}
+
+function LinkView({ link }) {
+  return (
+    <a href={link.url} target="_blank" rel="noopener noreferrer"
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a9eff", fontSize: 12, textDecoration: "none", maxWidth: 320, overflow: "hidden" }}>
+      🔗 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.label || link.url}</span>
+    </a>
+  );
+}
+
 export default function DisputePage() {
   const [disputes, setDisputes]     = useState([]);
   const [selected, setSelected]     = useState(null);
@@ -22,8 +71,13 @@ export default function DisputePage() {
   const [showAdd, setShowAdd]       = useState(false);
   const [dForm, setDForm]           = useState({ title: "", status: "진행중", note: "" });
   const [cForm, setCForm]           = useState({ author_id: "", custom_name: "", content: "" });
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [pendingLinks, setPendingLinks] = useState([]);
+  const [linkInput, setLinkInput]   = useState({ url: "", label: "" });
+  const [showLinkForm, setShowLinkForm] = useState(false);
   const [saving, setSaving]         = useState(false);
   const timelineRef                 = useRef(null);
+  const fileInputRef                = useRef(null);
   const dragItem                    = useRef(null);
   const dragOverItem                = useRef(null);
   const [dragIndex, setDragIndex]   = useState(null);
@@ -85,6 +139,24 @@ export default function DisputePage() {
     if (data) setSelected(data);
   }
 
+  async function uploadFiles(files) {
+    const results = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop();
+      const path = `${selected.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from("dispute-files")
+        .upload(path, file, { upsert: false });
+      if (!error && data) {
+        const { data: { publicUrl } } = supabase.storage
+          .from("dispute-files")
+          .getPublicUrl(data.path);
+        results.push({ name: file.name, url: publicUrl });
+      }
+    }
+    return results;
+  }
+
   async function addComment() {
     const isCustom = cForm.author_id === "__custom__";
     const authorName = isCustom
@@ -92,18 +164,35 @@ export default function DisputePage() {
       : (() => { const m = members.find(m => m.id === cForm.author_id); return m?.name || m?.email || ""; })();
     if (!cForm.content.trim() || !authorName) return;
     setSaving(true);
-    // 새 댓글은 맨 끝에 추가 (현재 최대 sort_order + 1)
+
+    const uploadedFiles = pendingFiles.length > 0 ? await uploadFiles(pendingFiles) : [];
     const maxOrder = comments.reduce((max, c) => Math.max(max, c.sort_order ?? 0), 0);
+
     await supabase.from("dispute_comments").insert({
       dispute_id:  selected.id,
       author_id:   isCustom ? null : cForm.author_id,
       author_name: authorName,
       content:     cForm.content.trim(),
       sort_order:  maxOrder + 1,
+      attachments: uploadedFiles,
+      links:       pendingLinks,
     });
     setCForm(f => ({ ...f, content: "" }));
+    setPendingFiles([]);
+    setPendingLinks([]);
+    setShowLinkForm(false);
+    setLinkInput({ url: "", label: "" });
     setSaving(false);
     loadComments(selected.id);
+  }
+
+  function addLink() {
+    if (!linkInput.url.trim()) return;
+    let url = linkInput.url.trim();
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    setPendingLinks(prev => [...prev, { url, label: linkInput.label.trim() || url }]);
+    setLinkInput({ url: "", label: "" });
+    setShowLinkForm(false);
   }
 
   async function removeDispute(id) {
@@ -151,27 +240,24 @@ export default function DisputePage() {
       setDropIndex(null);
       return;
     }
-
     const reordered = [...comments];
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
-
-    // 새 sort_order 부여 (1-based)
     const updated = reordered.map((c, i) => ({ ...c, sort_order: i + 1 }));
     setComments(updated);
-
-    // DB 일괄 업데이트
     await Promise.all(
       updated.map(c =>
         supabase.from("dispute_comments").update({ sort_order: c.sort_order }).eq("id", c.id)
       )
     );
-
     dragItem.current = null;
     dragOverItem.current = null;
     setDragIndex(null);
     setDropIndex(null);
   }
+
+  const canSubmit = cForm.content.trim() && cForm.author_id &&
+    (cForm.author_id !== "__custom__" || cForm.custom_name.trim());
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
@@ -255,7 +341,6 @@ export default function DisputePage() {
             <div style={{ padding: 24, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>아직 등록된 의견이 없습니다</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, marginBottom: 24, position: "relative" }}>
-              {/* 타임라인 세로선 */}
               <div style={{ position: "absolute", left: 19, top: 0, bottom: 0, width: 2, background: "#1e2130" }} />
               {comments.map((c, i) => (
                 <div key={c.id}
@@ -272,14 +357,12 @@ export default function DisputePage() {
                     transition: "opacity 0.15s",
                     cursor: "grab",
                   }}>
-                  {/* 타임라인 점 */}
                   <div style={{ width: 40, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 2 }}>
                     <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#7c5cfc", border: "2px solid #0d0f14", zIndex: 1 }} />
                   </div>
                   <div style={{ flex: 1, background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "12px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {/* 드래그 핸들 */}
                         <span style={{ color: "#2a2d3a", fontSize: 14, cursor: "grab", userSelect: "none", letterSpacing: "-1px" }}>⠿</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>{c.author_name}</span>
                       </div>
@@ -289,7 +372,20 @@ export default function DisputePage() {
                           style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 14, cursor: "pointer", padding: 0 }}>×</button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "#e8eaf0", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{c.content}</div>
+                    <div style={{ fontSize: 13, color: "#e8eaf0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: (c.attachments?.length || c.links?.length) ? 10 : 0 }}>{c.content}</div>
+
+                    {/* 첨부 파일 */}
+                    {c.attachments?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: c.links?.length ? 8 : 0 }}>
+                        {c.attachments.map((att, j) => <AttachmentView key={j} att={att} />)}
+                      </div>
+                    )}
+                    {/* 링크 */}
+                    {c.links?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {c.links.map((link, j) => <LinkView key={j} link={link} />)}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -299,6 +395,7 @@ export default function DisputePage() {
           {/* 의견 입력 */}
           <div style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "14px 16px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "180px 1fr auto", gap: 8 }}>
+              {/* 작성자 */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <select value={cForm.author_id} onChange={e => setCForm(f => ({ ...f, author_id: e.target.value, custom_name: "" }))}
                   style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: cForm.author_id ? "#e8eaf0" : "#4a4d5e", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
@@ -314,14 +411,72 @@ export default function DisputePage() {
                     style={{ background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
                 )}
               </div>
-              <textarea value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
-                placeholder="의견 입력 (Enter로 등록, Shift+Enter로 줄바꿈)"
-                rows={1}
-                style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", overflowY: "hidden", lineHeight: 1.6, minHeight: 36, fieldSizing: "content" }} />
+
+              {/* 텍스트 입력 + 첨부 미리보기 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <textarea value={cForm.content} onChange={e => setCForm(f => ({ ...f, content: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); }}}
+                  placeholder="의견 입력 (Enter로 등록, Shift+Enter로 줄바꿈)"
+                  rows={1}
+                  style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", overflowY: "hidden", lineHeight: 1.6, minHeight: 36, fieldSizing: "content" }} />
+
+                {/* 첨부 파일 미리보기 */}
+                {pendingFiles.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {pendingFiles.map((f, i) => (
+                      <FilePreview key={i} file={f} onRemove={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} />
+                    ))}
+                  </div>
+                )}
+
+                {/* 링크 미리보기 */}
+                {pendingLinks.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {pendingLinks.map((link, i) => (
+                      <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "4px 8px" }}>
+                        <span style={{ fontSize: 11, color: "#4a9eff", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🔗 {link.label}</span>
+                        <button onClick={() => setPendingLinks(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "transparent", border: "none", color: "#4a4d5e", fontSize: 12, cursor: "pointer", padding: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* URL 입력 폼 */}
+                {showLinkForm && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6 }}>
+                    <input value={linkInput.url} onChange={e => setLinkInput(f => ({ ...f, url: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && addLink()}
+                      placeholder="URL (예: https://...)"
+                      style={{ background: "#0d0f14", border: "1px solid #4a9eff55", borderRadius: 7, padding: "7px 10px", color: "#e8eaf0", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                    <input value={linkInput.label} onChange={e => setLinkInput(f => ({ ...f, label: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && addLink()}
+                      placeholder="표시 이름 (선택)"
+                      style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "7px 10px", color: "#e8eaf0", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                    <button onClick={addLink}
+                      style={{ background: "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>추가</button>
+                  </div>
+                )}
+
+                {/* 하단 버튼 */}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                    style={{ display: "none" }}
+                    onChange={e => { setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ""; }} />
+                  <button onClick={() => fileInputRef.current?.click()}
+                    style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    📎 파일
+                  </button>
+                  <button onClick={() => setShowLinkForm(v => !v)}
+                    style={{ background: showLinkForm ? "#1e2130" : "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: showLinkForm ? "#4a9eff" : "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    🔗 URL
+                  </button>
+                </div>
+              </div>
+
               <button onClick={addComment}
-                disabled={saving || !cForm.content.trim() || !cForm.author_id || (cForm.author_id === "__custom__" && !cForm.custom_name.trim())}
-                style={{ background: (cForm.content.trim() && cForm.author_id && (cForm.author_id !== "__custom__" || cForm.custom_name.trim())) ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
+                disabled={saving || !canSubmit}
+                style={{ background: canSubmit ? "linear-gradient(135deg,#7c5cfc,#4a9eff)" : "#2a2d3a", border: "none", borderRadius: 7, padding: "8px 20px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
                 {saving ? "..." : "등록"}
               </button>
             </div>
