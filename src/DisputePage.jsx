@@ -479,11 +479,15 @@ export default function DisputePage() {
                 )}
 
                 {/* 하단 버튼 */}
-                <div style={{ display: "flex", gap: 6 }}>
-                  <label style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                    📎 파일
-                    <input type="file" multiple style={{ display: "none" }}
-                      onChange={e => { setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]); e.target.value = ""; }} />
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    📎 파일 {pendingFiles.length > 0 && <span style={{ color: "#7c5cfc", fontWeight: 700 }}>({pendingFiles.length})</span>}
+                    <input type="file" multiple
+                      onChange={e => {
+                        const files = Array.from(e.target.files || []);
+                        if (files.length > 0) setPendingFiles(prev => [...prev, ...files]);
+                        e.target.value = "";
+                      }} />
                   </label>
                   <button onClick={() => setShowLinkForm(v => !v)}
                     style={{ background: showLinkForm ? "#1e2130" : "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: showLinkForm ? "#4a9eff" : "#4a4d5e", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
