@@ -31,7 +31,7 @@ export default function AdminPage() {
     setSaving(true); setError("");
     const res = await fetch("https://djnsbwsguqirskimukxh.supabase.co/functions/v1/invite-user", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ" },
+      headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ" },
       body: JSON.stringify({ email: form.email.trim(), role: form.role }),
     });
     const { error: err } = await res.json();
