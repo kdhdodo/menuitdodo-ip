@@ -208,7 +208,6 @@ export default function App() {
           </button>
         </div>
       </div>
-1
       {/* 페이지 */}
       {view === "admin"                            && <AdminPage />}
       {view === "user" && subView === "patents"    && <UserPage />}
