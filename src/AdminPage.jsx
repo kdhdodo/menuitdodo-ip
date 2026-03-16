@@ -29,12 +29,7 @@ export default function AdminPage() {
   async function invite() {
     if (!form.email.trim()) return;
     setSaving(true); setError("");
-    const res = await fetch("https://djnsbwsguqirskimukxh.supabase.co/functions/v1/invite-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ" },
-      body: JSON.stringify({ email: form.email.trim(), role: form.role }),
-    });
-    const { error: err } = await res.json();
+    const { error: err } = await adminFetch({ action: "invite", email: form.email.trim(), role: form.role });
     if (err) { setError(err); setSaving(false); return; }
     setForm({ email: "", role: "user" });
     setShowInvite(false); setSaving(false);
@@ -46,9 +41,14 @@ export default function AdminPage() {
     load();
   }
 
+  const ADMIN_FN = "https://djnsbwsguqirskimukxh.supabase.co/functions/v1/invite-user";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ";
+  const adminFetch = (body) => fetch(ADMIN_FN, { method: "POST", headers: { "Content-Type": "application/json", "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` }, body: JSON.stringify(body) }).then(r => r.json());
+
   async function removeMember(id) {
     if (!confirm("이 회원을 삭제하시겠습니까?")) return;
-    await supabase.auth.admin.deleteUser(id);
+    const { error } = await adminFetch({ action: "delete", userId: id });
+    if (error) { alert(error); return; }
     load();
   }
 
