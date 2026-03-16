@@ -57,6 +57,7 @@ export default function UserPage() {
   const [expanded, setExpanded]       = useState(null);
   const [search, setSearch]           = useState("");
   const [activeCategory, setActiveCategory] = useState("전체");
+  const [activeStatus, setActiveStatus]     = useState("전체");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [failed, setFailed]           = useState([]);
   const [retrying, setRetrying]       = useState([]);
@@ -120,11 +121,14 @@ export default function UserPage() {
     setRetrying([]);
   }
 
+  const statusOptions = ["전체", ...Array.from(new Set(patents.map(p => p.registrationStatus).filter(Boolean)))];
+
   const filtered = patents.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !search || p.inventionName?.toLowerCase().includes(q) || p.applicationNumber?.includes(q);
-    const matchCat = activeCategory === "전체" || p.category === activeCategory;
-    return matchSearch && matchCat;
+    const matchCat    = activeCategory === "전체" || p.category === activeCategory;
+    const matchStatus = activeStatus === "전체" || p.registrationStatus === activeStatus;
+    return matchSearch && matchCat && matchStatus;
   });
 
   const countBy = (cat) => cat === "전체" ? patents.length : patents.filter(p => p.category === cat).length;
@@ -182,10 +186,22 @@ export default function UserPage() {
         })}
       </div>
 
-      {/* 검색 */}
-      <div style={{ marginBottom: 16 }}>
+      {/* 검색 + 상태 필터 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="명칭 / 번호 검색"
           style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 14px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", width: 300 }} />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {statusOptions.map(s => {
+            const color = STATUS_COLOR[s] || "#e8eaf0";
+            const active = activeStatus === s;
+            return (
+              <button key={s} onClick={() => { setActiveStatus(s); setExpanded(null); }}
+                style={{ background: active ? color + "22" : "transparent", border: `1px solid ${active ? color : "#1e2130"}`, borderRadius: 6, padding: "5px 12px", color: active ? color : "#4a4d5e", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {s}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 목록 */}
