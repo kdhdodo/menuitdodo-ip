@@ -105,7 +105,10 @@ export default function AdminPage() {
           <div style={{ padding: 32, textAlign: "center", color: "#4a4d5e", fontSize: 13 }}>회원이 없습니다</div>
         ) : filtered.map(m => (
           <div key={m.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", padding: "12px 16px", borderBottom: "1px solid #1e2130", alignItems: "center", fontSize: 13 }}>
-            <div style={{ color: "#e8eaf0" }}>{m.email}</div>
+            <div style={{ color: "#e8eaf0", display: "flex", alignItems: "center", gap: 8 }}>
+              {m.email || "—"}
+              {!m.name && <span style={{ background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b55", borderRadius: 4, padding: "1px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>가입 대기중</span>}
+            </div>
             <div style={{ color: "#8890a4" }}>{m.name || "—"}</div>
             <div>
               {m.role === "super_admin" ? (
