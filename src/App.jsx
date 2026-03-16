@@ -64,15 +64,23 @@ export default function App() {
   const viewInitialized             = useRef(false);
 
   useEffect(() => {
-    // 초대 링크로 접속 여부 감지
-    const hash = window.location.hash;
-    if (hash.includes("type=invite")) setIsFirstLogin(true);
+    async function init() {
+      const hash = window.location.hash;
+      if (hash.includes("type=invite")) setIsFirstLogin(true);
 
-    supabase.auth.getSession().then(({ data }) => {
+      const params = new URLSearchParams(hash.substring(1));
+      const at = params.get("access_token"), rt = params.get("refresh_token");
+      if (at && rt && !hash.includes("type=invite")) {
+        await supabase.auth.setSession({ access_token: at, refresh_token: rt });
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
+      const { data } = await supabase.auth.getSession();
       setSession(data.session);
       if (data.session) loadProfile(data.session.user.id);
       else setLoading(false);
-    });
+    }
+    init();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === "USER_UPDATED") return; // 비밀번호 변경 이벤트 무시
       setSession(s);
