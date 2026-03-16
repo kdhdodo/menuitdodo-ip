@@ -82,6 +82,7 @@ export default function DisputePage() {
   const dragOverItem                = useRef(null);
   const [dragIndex, setDragIndex]   = useState(null);
   const [dropIndex, setDropIndex]   = useState(null);
+  const [editingComment, setEditingComment] = useState(null);
 
   useEffect(() => {
     loadDisputes();
@@ -224,6 +225,13 @@ export default function DisputePage() {
   async function removeComment(id) {
     await supabase.from("dispute_comments").delete().eq("id", id);
     setComments(prev => prev.filter(c => c.id !== id));
+  }
+
+  async function updateComment(id, content) {
+    if (!content.trim()) return;
+    await supabase.from("dispute_comments").update({ content: content.trim() }).eq("id", id);
+    setComments(prev => prev.map(c => c.id === id ? { ...c, content: content.trim() } : c));
+    setEditingComment(null);
   }
 
   async function changeStatus(id, status) {
@@ -394,11 +402,29 @@ export default function DisputePage() {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 11, color: "#4a4d5e" }}>{formatCommentDate(c.created_at)}</span>
+                        <button onClick={() => setEditingComment(editingComment?.id === c.id ? null : { id: c.id, content: c.content })}
+                          style={{ background: "transparent", border: "none", color: "#4a4d5e", fontSize: 11, cursor: "pointer", padding: 0 }}>수정</button>
                         <button onClick={() => removeComment(c.id)}
                           style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 14, cursor: "pointer", padding: 0 }}>×</button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "#e8eaf0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: (c.attachments?.length || c.links?.length) ? 10 : 0 }}>{c.content}</div>
+                    {editingComment?.id === c.id ? (
+                      <div style={{ display: "flex", gap: 6, marginBottom: (c.attachments?.length || c.links?.length) ? 10 : 0 }}>
+                        <textarea value={editingComment.content}
+                          onChange={e => setEditingComment(ec => ({ ...ec, content: e.target.value }))}
+                          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); updateComment(c.id, editingComment.content); } if (e.key === "Escape") setEditingComment(null); }}
+                          rows={2}
+                          style={{ flex: 1, background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "7px 10px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "none", lineHeight: 1.6 }} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <button onClick={() => updateComment(c.id, editingComment.content)}
+                            style={{ background: "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 6, padding: "5px 10px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>저장</button>
+                          <button onClick={() => setEditingComment(null)}
+                            style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#4a4d5e", fontSize: 11, cursor: "pointer" }}>취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 13, color: "#e8eaf0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: (c.attachments?.length || c.links?.length) ? 10 : 0 }}>{c.content}</div>
+                    )}
 
                     {/* 첨부 파일 */}
                     {c.attachments?.length > 0 && (
