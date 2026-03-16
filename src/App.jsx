@@ -95,9 +95,15 @@ export default function App() {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     setProfile(data);
     if (setViewOnLoad && !viewInitialized.current) {
-      const r = data?.role || "external";
-      const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : (r === "member") ? "user" : r;
-      setView(resolvedRole);
+      const hasTodoParam = new URLSearchParams(window.location.search).get("todo");
+      if (hasTodoParam) {
+        setView("user");
+        setSubView("todos");
+      } else {
+        const r = data?.role || "external";
+        const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : (r === "member") ? "user" : r;
+        setView(resolvedRole);
+      }
       viewInitialized.current = true;
     }
     setLoading(false);
@@ -202,7 +208,7 @@ export default function App() {
           </button>
         </div>
       </div>
-
+1
       {/* 페이지 */}
       {view === "admin"                            && <AdminPage />}
       {view === "user" && subView === "patents"    && <UserPage />}
