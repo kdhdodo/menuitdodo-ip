@@ -23,6 +23,7 @@ export default function ArchivePage() {
   const [form, setForm]             = useState({ title: "", content: "", category: "특허" });
   const [pendingFiles, setPendingFiles] = useState([]);
   const [saving, setSaving]         = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const fileRef                     = useRef(null);
 
   useEffect(() => { load(); }, []);
@@ -73,6 +74,19 @@ export default function ArchivePage() {
     if (!confirm("삭제하시겠습니까?")) return;
     await supabase.from("archive_items").delete().eq("id", id);
     setItems(prev => prev.filter(i => i.id !== id));
+  }
+
+  async function updateItem() {
+    if (!editingItem) return;
+    setSaving(true);
+    await supabase.from("archive_items").update({
+      title:    editingItem.title?.trim() || null,
+      content:  editingItem.content?.trim() || null,
+      category: editingItem.category,
+    }).eq("id", editingItem.id);
+    setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...editingItem } : i));
+    setEditingItem(null);
+    setSaving(false);
   }
 
   function onPaste(e) {
@@ -167,38 +181,69 @@ export default function ArchivePage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map(item => (
             <div key={item.id} style={{ background: "#11141c", border: "1px solid #1e2130", borderRadius: 10, padding: "16px 18px", position: "relative" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#7c5cfc", background: "#7c5cfc22", border: "1px solid #7c5cfc44", borderRadius: 4, padding: "2px 7px" }}>{item.category}</span>
-                    {item.title && <span style={{ fontSize: 14, fontWeight: 700, color: "#e8eaf0" }}>{item.title}</span>}
-                    <span style={{ fontSize: 11, color: "#4a4d5e", marginLeft: "auto" }}>{formatDate(item.created_at)}</span>
+              {editingItem?.id === item.id ? (
+                <div>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input value={editingItem.title || ""} onChange={e => setEditingItem(ei => ({ ...ei, title: e.target.value }))}
+                      placeholder="제목"
+                      style={{ background: "#0d0f14", border: "1px solid #7c5cfc55", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                    <select value={editingItem.category} onChange={e => setEditingItem(ei => ({ ...ei, category: e.target.value }))}
+                      style={{ background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit" }}>
+                      {CATEGORIES.filter(c => c !== "전체").map(c => <option key={c}>{c}</option>)}
+                    </select>
                   </div>
-                  {item.content && (
-                    <div style={{ fontSize: 13, color: "#8890a4", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: item.attachments?.length > 0 ? 10 : 0 }}>
-                      {item.content}
-                    </div>
-                  )}
-                  {item.attachments?.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                      {item.attachments.map((att, i) => (
-                        isImage(att.name) ? (
-                          <a key={i} href={att.url} target="_blank" rel="noopener noreferrer">
-                            <img src={att.url} alt={att.name} style={{ maxWidth: 200, maxHeight: 140, borderRadius: 6, border: "1px solid #1e2130", objectFit: "cover", cursor: "pointer" }} />
-                          </a>
-                        ) : (
-                          <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" download={att.name}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#8890a4", fontSize: 12, textDecoration: "none" }}>
-                            📄 {att.name}
-                          </a>
-                        )
-                      ))}
-                    </div>
-                  )}
+                  <textarea value={editingItem.content || ""} onChange={e => setEditingItem(ei => ({ ...ei, content: e.target.value }))}
+                    rows={4}
+                    style={{ width: "100%", boxSizing: "border-box", background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 7, padding: "8px 12px", color: "#e8eaf0", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "vertical", marginBottom: 8 }} />
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                    <button onClick={updateItem} disabled={saving}
+                      style={{ background: "linear-gradient(135deg,#7c5cfc,#4a9eff)", border: "none", borderRadius: 7, padding: "7px 18px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      {saving ? "저장 중..." : "저장"}
+                    </button>
+                    <button onClick={() => setEditingItem(null)}
+                      style={{ background: "transparent", border: "1px solid #1e2130", borderRadius: 7, padding: "7px 18px", color: "#4a4d5e", fontSize: 13, cursor: "pointer" }}>
+                      취소
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => removeItem(item.id)}
-                  style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 16, cursor: "pointer", padding: 0, flexShrink: 0 }}>×</button>
-              </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#7c5cfc", background: "#7c5cfc22", border: "1px solid #7c5cfc44", borderRadius: 4, padding: "2px 7px" }}>{item.category}</span>
+                      {item.title && <span style={{ fontSize: 14, fontWeight: 700, color: "#e8eaf0" }}>{item.title}</span>}
+                      <span style={{ fontSize: 11, color: "#4a4d5e", marginLeft: "auto" }}>{formatDate(item.created_at)}</span>
+                    </div>
+                    {item.content && (
+                      <div style={{ fontSize: 13, color: "#8890a4", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: item.attachments?.length > 0 ? 10 : 0 }}>
+                        {item.content}
+                      </div>
+                    )}
+                    {item.attachments?.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        {item.attachments.map((att, i) => (
+                          isImage(att.name) ? (
+                            <a key={i} href={att.url} target="_blank" rel="noopener noreferrer">
+                              <img src={att.url} alt={att.name} style={{ maxWidth: 200, maxHeight: 140, borderRadius: 6, border: "1px solid #1e2130", objectFit: "cover", cursor: "pointer" }} />
+                            </a>
+                          ) : (
+                            <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" download={att.name}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0d0f14", border: "1px solid #1e2130", borderRadius: 6, padding: "5px 10px", color: "#8890a4", fontSize: 12, textDecoration: "none" }}>
+                              📄 {att.name}
+                            </a>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                    <button onClick={() => setEditingItem({ id: item.id, title: item.title || "", content: item.content || "", category: item.category })}
+                      style={{ background: "transparent", border: "none", color: "#4a4d5e", fontSize: 11, cursor: "pointer", padding: 0 }}>수정</button>
+                    <button onClick={() => removeItem(item.id)}
+                      style={{ background: "transparent", border: "none", color: "#2a2d3a", fontSize: 16, cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
