@@ -29,8 +29,13 @@ export default function AdminPage() {
   async function invite() {
     if (!form.email.trim()) return;
     setSaving(true); setError("");
-    const { error: err } = await supabase.auth.admin.inviteUserByEmail(form.email.trim());
-    if (err) { setError(err.message); setSaving(false); return; }
+    const res = await fetch("https://djnsbwsguqirskimukxh.supabase.co/functions/v1/invite-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqbnNid3NndXFpcnNraW11a3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg3MzEsImV4cCI6MjA4OTE0NDczMX0.PkHZQsAUVzOj6c6NaEgvyfPcF6e1m7JbnNTta7ZaNjQ" },
+      body: JSON.stringify({ email: form.email.trim(), role: form.role }),
+    });
+    const { error: err } = await res.json();
+    if (err) { setError(err); setSaving(false); return; }
     setForm({ email: "", role: "user" });
     setShowInvite(false); setSaving(false);
     setTimeout(load, 1000);
