@@ -15,7 +15,7 @@ export default function Login() {
     <div style={{ minHeight:"100vh",background:"#0d0f14",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif" }}>
       <form onSubmit={login} style={{ background:"#11141c",border:"1px solid #1e2130",borderRadius:14,padding:"40px 36px",width:360,boxSizing:"border-box" }}>
         <div style={{ fontSize:22,fontWeight:800,color:"#e8eaf0",marginBottom:6 }}>메뉴잇 특허 관리</div>
-        <div style={{ fontSize:13,color:"#4a4d5e",marginBottom:32 }}>ip.menuit.io</div>
+        <div style={{ fontSize:13,color:"#4a4d5e",marginBottom:32 }}>a-ip.menuit.io</div>
         {error && <div style={{ background:"rgba(255,80,80,0.1)",border:"1px solid rgba(255,80,80,0.3)",color:"#ff5050",borderRadius:8,padding:"10px 14px",fontSize:13,marginBottom:16 }}>{error}</div>}
         <div style={{ marginBottom:14 }}>
           <div style={{ fontSize:12,color:"#8890a4",marginBottom:6 }}>이메일</div>
