@@ -96,7 +96,7 @@ export default function App() {
     setProfile(data);
     if (setViewOnLoad && !viewInitialized.current) {
       const r = data?.role || "external";
-      const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : r;
+      const resolvedRole = (r === "super_admin" || r === "admin") ? "admin" : (r === "member") ? "user" : r;
       setView(resolvedRole);
       viewInitialized.current = true;
     }
@@ -151,7 +151,7 @@ export default function App() {
   );
 
   const rawRole = profile?.role || "external";
-  const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : rawRole;
+  const role = (rawRole === "super_admin" || rawRole === "admin") ? "admin" : (rawRole === "member") ? "user" : rawRole;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0f14", fontFamily: FONT, color: "#e8eaf0" }}>
